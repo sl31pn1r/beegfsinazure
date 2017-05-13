@@ -361,3 +361,355 @@ It is possible to restart sync operation if necessary
 [root@beegfsmgmt ~]# beegfs-ctl --startresync --nodetype=metadata --nodeid=2 --restart
 ```
 
+# Tests
+## Performce
+### Smallfiles test 1
+Generating 16GBs of files with 8 threads, in a single metadata node dual storage node configuration on a RAID0 storage share with mirroring.
+```sh
+[root@beegfs-cli01 smallfile-master]# python smallfile_cli.py --operation create --threads 8 --file-size 1024 --files 2048 --top /mnt/beegfs/smallfiles
+
+140.674193 sec elapsed time
+108.605563 files/sec
+108.605563 IOPS
+108.605563 MB/sec
+```
+Storage utilization.
+```sh
+[root@beegfs-cli01 smallfile-master]# df -h
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda2        30G  1.7G   28G   6% /
+devtmpfs        3.4G     0  3.4G   0% /dev
+tmpfs           3.5G     0  3.5G   0% /dev/shm
+tmpfs           3.5G   17M  3.4G   1% /run
+tmpfs           3.5G     0  3.5G   0% /sys/fs/cgroup
+/dev/sda1       497M   62M  436M  13% /boot
+/dev/sdb1        99G   61M   94G   1% /mnt/resource
+tmpfs           697M     0  697M   0% /run/user/1000
+beegfs_nodev    8.0T   33G  8.0T   1% /mnt/beegfs
+```
+From the tests it seems that in Buddy Mirroring the storage space is halved, files are using twice as much space from the available storage. What completley makes sense as we are having a RAID1 like cluster.
+
+### Smallfiles test 2
+Generating 16GBs of files with 8 threads, in a dual metadata node dual storage node configuration
+```sh
+[root@beegfs-cli01 smallfile-master]# python smallfile_cli.py --operation create --threads 8 --file-size 1024 --files 2048 --top /mnt/beegfs/smallfiles
+
+122.164110 sec elapsed time
+134.114676 files/sec
+134.114676 IOPS
+134.114676 MB/sec
+```
+Read test:
+```sh
+176.852571 sec elapsed time
+90.595234 files/sec
+90.595234 IOPS
+90.595234 MB/sec
+```
+Append test
+```sh
+116.225757 sec elapsed time
+139.211827 files/sec
+139.211827 IOPS
+139.211827 MB/sec
+```
+## High Availability test
+I have tested HA failures on a Storage and Metadata node level as well.
+
+### Storage node failure test
+Downloaded a CentOS image
+```sh
+871d931b7d71cf5ecededb03c76583de  CentOS-7-x86_64-DVD-1611.iso
+```
+Then stopped one of the storage nodes. (Notice that the available space went down to 4 TB from 8 TB.
+```sh
+[root@beegfs-cli01 beegfs]# df -h
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda2        30G  1.7G   28G   6% /
+devtmpfs        3.4G     0  3.4G   0% /dev
+tmpfs           3.5G     0  3.5G   0% /dev/shm
+tmpfs           3.5G   17M  3.4G   1% /run
+tmpfs           3.5G     0  3.5G   0% /sys/fs/cgroup
+/dev/sda1       497M   62M  436M  13% /boot
+/dev/sdb1        99G   61M   94G   1% /mnt/resource
+tmpfs           697M     0  697M   0% /run/user/1000
+beegfs_nodev    4.0T   21G  4.0T   1% /mnt/beegfs
+```
+It takes about 1-2 minutes to identify the node failure
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --listtargets --nodetype=storage --state
+TargetID     Reachability  Consistency   NodeID
+========     ============  ===========   ======
+     101 Probably-offline         Good        1
+     201           Online         Good        2
+```
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --listtargets --nodetype=storage --state
+TargetID     Reachability  Consistency   NodeID
+========     ============  ===========   ======
+     101          Offline         Good        1
+     201           Online         Good        2
+```
+When checking the file md5sum gives back the hash on a single node configuration.
+```sh
+[root@beegfs-cli01 beegfs]# md5sum CentOS-7-x86_64-DVD-1611.iso
+871d931b7d71cf5ecededb03c76583de  CentOS-7-x86_64-DVD-1611.iso
+```
+#### Synchronization of data after failure
+
+Downloading a new file and deleting one
+```sh
+[root@beegfs-cli01 beegfs]# wget http://mirrors.vooservers.com/centos/6.9/isos/x86_64/CentOS-6.9-x86_64-minimal.iso
+--2017-05-01 11:06:13--  http://mirrors.vooservers.com/centos/6.9/isos/x86_64/CentOS-6.9-x86_64-minimal.iso
+Resolving mirrors.vooservers.com (mirrors.vooservers.com)... 194.0.252.34, 2a00:1c10:3:634:0:1000:0:1
+Connecting to mirrors.vooservers.com (mirrors.vooservers.com)|194.0.252.34|:80... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 427819008 (408M) [application/octet-stream]
+Saving to: ‘CentOS-6.9-x86_64-minimal.iso’
+
+100%[===============================================================================================>] 427,819,008 11.2MB/s   in 38s
+
+2017-05-01 11:06:51 (10.7 MB/s) - ‘CentOS-6.9-x86_64-minimal.iso’ saved [427819008/427819008]
+
+[root@beegfs-cli01 beegfs]# rm -rf CentOS-7-x86_64-DVD-1611.iso
+
+[root@beegfs-cli01 beegfs]# df -h
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda2        30G  1.7G   28G   6% /
+devtmpfs        3.4G     0  3.4G   0% /dev
+tmpfs           3.5G     0  3.5G   0% /dev/shm
+tmpfs           3.5G   17M  3.4G   1% /run
+tmpfs           3.5G     0  3.5G   0% /sys/fs/cgroup
+/dev/sda1       497M   62M  436M  13% /boot
+/dev/sdb1        99G   61M   94G   1% /mnt/resource
+tmpfs           697M     0  697M   0% /run/user/1000
+beegfs_nodev    4.0T  441M  4.0T   1% /mnt/beegfs
+
+[root@beegfs-cli01 beegfs]# md5sum CentOS-6.9-x86_64-minimal.iso
+af4a1640c0c6f348c6c41f1ea9e192a2  CentOS-6.9-x86_64-minimal.iso
+```
+After the secondary node joins the cluster resynchronization happens
+```sh
+[root@beegfs-cli01 beegfs]# df -h
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda2        30G  1.7G   28G   6% /
+devtmpfs        3.4G     0  3.4G   0% /dev
+tmpfs           3.5G     0  3.5G   0% /dev/shm
+tmpfs           3.5G   17M  3.4G   1% /run
+tmpfs           3.5G     0  3.5G   0% /sys/fs/cgroup
+/dev/sda1       497M   62M  436M  13% /boot
+/dev/sdb1        99G   61M   94G   1% /mnt/resource
+tmpfs           697M     0  697M   0% /run/user/1000
+beegfs_nodev    8.0T  882M  8.0T   1% /mnt/beegfs 
+```
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --resyncstats --nodetype=storage --mirrorgroupid=100
+Job state: Completed successfully
+Job start time: Mon May  1 11:09:27 2017
+Job end time: Mon May  1 11:09:40 2017
+# of discovered dirs: 2
+# of discovered files: 2
+# of dir sync candidates: 177
+# of file sync candidates: 178
+# of synced dirs: 177
+# of synced files: 2
+# of dir sync errors: 0
+# of file sync errors: 0
+```
+### Metadata node failure test after mirroring
+
+After configuring mirroring and down loading a new file we are testing the metadata mirroring in this step.
+#### First we check the node state
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --listtargets --nodetype=metadata --state
+TargetID     Reachability  Consistency   NodeID
+========     ============  ===========   ======
+       1           Online         Good        1
+       2           Online         Good        2
+We also check the status of the mirroring group and process
+```
+```sh 
+[root@beegfsmgmt ~]# beegfs-ctl --listmirrorgroups --nodetype=meta
+     BuddyGroupID     PrimaryNodeID   SecondaryNodeID
+     ============     =============   ===============
+              200                 1                 2
+```
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --resyncstats --nodetype=meta --nodeid=2
+Job state: Completed successfully
+Job start time: Mon May  1 12:25:45 2017
+Job end time: Mon May  1 12:26:27 2017
+# of discovered dirs: 2
+# of discovery errors: 0
+# of synced dirs: 2
+# of synced files: 5
+# of dir sync errors: 0
+# of file sync errors: 0
+# of client sessions to sync: 0
+# of synced client sessions: 0
+session sync error: No
+# of modification objects synced: 0
+# of modification sync errors: 0
+```
+Then we get a file
+```sh
+[root@beegfs-cli01 beegfs]# wget http://mirrors.vooservers.com/centos/6.9/isos/x86_64/CentOS-6.9-x86_64-minimal.iso
+--2017-05-01 12:31:17--  http://mirrors.vooservers.com/centos/6.9/isos/x86_64/CentOS-6.9-x86_64-minimal.iso
+Resolving mirrors.vooservers.com (mirrors.vooservers.com)... 194.0.252.34, 2a00:1c10:3:634:0:1000:0:1
+Connecting to mirrors.vooservers.com (mirrors.vooservers.com)|194.0.252.34|:80... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 427819008 (408M) [application/octet-stream]
+Saving to: ‘CentOS-6.9-x86_64-minimal.iso’
+
+100%[===============================================================================================>] 427,819,008 11.2MB/s   in 38s
+
+2017-05-01 12:31:54 (10.8 MB/s) - ‘CentOS-6.9-x86_64-minimal.iso’ saved [427819008/427819008]
+```
+```sh
+[root@beegfs-cli01 beegfs]# md5sum CentOS-6.9-x86_64-minimal.iso
+af4a1640c0c6f348c6c41f1ea9e192a2  CentOS-6.9-x86_64-minimal.iso
+```
+After this we stop the primary metadata node.
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --listtargets --nodetype=metadata --state
+TargetID     Reachability  Consistency   NodeID
+========     ============  ===========   ======
+       1 Probably-offline         Good        1
+       2           Online         Good        2
+```
+After the node goes down from the storage (takes about 1-2 minutes)
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --listtargets --nodetype=metadata --state
+TargetID     Reachability  Consistency   NodeID
+========     ============  ===========   ======
+       1          Offline Needs-resync        1
+       2           Online         Good        2
+```
+The sync process will also be stopped
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --resyncstats --nodetype=meta --nodeid=1
+Job state: Not started
+# of discovered dirs: 0
+# of discovery errors: 0
+# of synced dirs: 0
+# of synced files: 0
+# of dir sync errors: 0
+# of file sync errors: 0
+# of client sessions to sync: 0
+# of synced client sessions: 0
+session sync error: No
+# of modification objects synced: 0
+# of modification sync errors: 0
+```
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --resyncstats --nodetype=meta --nodeid=2
+Job state: Not started
+# of discovered dirs: 0
+# of discovery errors: 0
+# of synced dirs: 0
+# of synced files: 0
+# of dir sync errors: 0
+# of file sync errors: 0
+# of client sessions to sync: 0
+# of synced client sessions: 0
+session sync error: No
+# of modification objects synced: 0
+# of modification sync errors: 0
+```
+Only files and directories which were created after the sync has been introduced will be available, others not!
+```sh
+[root@beegfs-cli01 beegfs]# ll
+ls: cannot access smallfiles: Communication error on send
+total 417792
+-rw-r--r--. 1 root root 427819008 Mar 28 18:31 CentOS-6.9-x86_64-minimal.iso
+d?????????? ? ?    ?            ?            ? smallfiles
+```
+```sh
+[root@beegfs-cli01 beegfs]# cd smallfiles
+-bash: cd: smallfiles: Communication error on send
+[root@beegfs-cli01 beegfs]# md5sum CentOS-6.9-x86_64-minimal.iso
+af4a1640c0c6f348c6c41f1ea9e192a2  CentOS-6.9-x86_64-minimal.iso
+```
+After downloading a new file, what goes without error
+```sh
+[root@beegfs-cli01 beegfs]# wget http://mirrors.clouvider.net/CentOS/6.8/isos/x86_64/CentOS-6.8-x86_64-minimal.iso
+--2017-05-01 12:44:21--  http://mirrors.clouvider.net/CentOS/6.8/isos/x86_64/CentOS-6.8-x86_64-minimal.iso
+Resolving mirrors.clouvider.net (mirrors.clouvider.net)... 185.42.223.15, 2a04:92c1:1:2::6
+Connecting to mirrors.clouvider.net (mirrors.clouvider.net)|185.42.223.15|:80... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 468713472 (447M) [application/octet-stream]
+Saving to: ‘CentOS-6.8-x86_64-minimal.iso’
+
+100%[===============================================================================================>] 468,713,472 17.6MB/s   in 16s
+
+2017-05-01 12:44:37 (27.4 MB/s) - ‘CentOS-6.8-x86_64-minimal.iso’ saved [468713472/468713472]
+```
+We also restart the primary node
+After the primary node comes up we will see the resync happening in no time
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --resyncstats --nodetype=meta --nodeid=1
+Job state: Completed successfully
+Job start time: Mon May  1 12:58:19 2017
+Job end time: Mon May  1 12:59:04 2017
+# of discovered dirs: 2
+# of discovery errors: 0
+# of synced dirs: 2
+# of synced files: 9
+# of dir sync errors: 0
+# of file sync errors: 0
+# of client sessions to sync: 1
+# of synced client sessions: 1
+session sync error: No
+# of modification objects synced: 0
+# of modification sync errors: 0
+```
+The metadata status will be also good
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --listtargets --nodetype=metadata --state
+TargetID     Reachability  Consistency   NodeID
+========     ============  ===========   ======
+       1           Online         Good        1
+       2           Online         Good        2
+```
+Chedcking if we bring down the secondary node we still can access the new file
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --listtargets --nodetype=metadata --state
+TargetID     Reachability  Consistency   NodeID
+========     ============  ===========   ======
+       1           Online         Good        1
+       2 Probably-offline         Good        2
+```
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --listtargets --nodetype=metadata --state
+TargetID     Reachability  Consistency   NodeID
+========     ============  ===========   ======
+       1           Online         Good        1
+       2          Offline         Good        2
+```
+```sh
+[root@beegfs-cli01 beegfs]# ll
+total 875520
+-rw-r--r--. 1 root root 468713472 May 23  2016 CentOS-6.8-x86_64-minimal.iso
+-rw-r--r--. 1 root root 427819008 Mar 28 18:31 CentOS-6.9-x86_64-minimal.iso
+drwxr-xr-x. 2 root root         0 May  1 11:43 smallfiles
+[root@beegfs-cli01 beegfs]# md5sum CentOS-6.8-x86_64-minimal.iso
+0ca12fe5f28c2ceed4f4084b41ff8a0b  CentOS-6.8-x86_64-minimal.iso
+[root@beegfs-cli01 beegfs]# md5sum CentOS-6.9-x86_64-minimal.iso
+af4a1640c0c6f348c6c41f1ea9e192a2  CentOS-6.9-x86_64-minimal.iso
+```
+After bringing up the secondary node you will see that it is doing resync operation
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --listtargets --nodetype=metadata --state
+TargetID     Reachability  Consistency   NodeID
+========     ============  ===========   ======
+       1           Online         Good        1
+       2           Online    resyncing        2
+```
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --listtargets --nodetype=metadata --state
+TargetID     Reachability  Consistency   NodeID
+========     ============  ===========   ======
+       1           Online         Good        1
+       2           Online         Good        2
+```
+
