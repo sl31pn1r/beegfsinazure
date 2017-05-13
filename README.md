@@ -11,16 +11,18 @@ This article is a How-To article with templates to deploy a High-Available BeeGF
 The core components are basic Azure resources with properties easy to modify. The article also contains some test results.
 
 The solution was implemented in the Azure West Europe region, on standard services, like Virtual Machines, Storage accounts.
-The high level design looks like the following: https://ibb.co/nRg55k
+The high level design looks like the following: 
 
-Within a single region, I have deployed a Single resource Group with a VNET, within that VNET with a Subnet. If required the storage servers can be separeted to another subnet from the clients. In a production environment I would advise to have them separated.
+![N|BeeGFS](https://image.ibb.co/d2QnJ5/BeeGFS.png)
+
+Within a single region, I have deployed a single Resource Group with a VNET, within that VNET a Subnet. If required the storage servers can be separeted to another subnet from the clients. In a production environment I would advise to have them separated.
 I have deployed a single management server, an Availability Set with two metadata- and another Availability set two storage nodes, along with two clients. In an production HPC cluster solution I aso would recomment to put the clients to an Availability set, for HA purposes.
 
-All the nodes were Standard D2_v2 with all of its limitations on IOPS, network throughput etc.
-The operating system was CentOS 7.3 for the storage environment.
-For the start a single metadata node with two 1 TB disks was deployed, later I have introduced a second metadata node with the same setup.
-There were two storage nodes with 4 standard 1TB disk / node.
-I have used 2 client nodes for test CentOS 6.8 and CentOS 7.3
+- All the nodes were Standard D2_v2 with all of its limitations on IOPS, network throughput 
+- The operating system was CentOS 7.3 for the storage environment.
+- As a start a single metadata node with two 1 TB disks was deployed, later I have introduced a second metadata node with the same setup.
+- There were two storage nodes with 4 standard 1TB disk / node.
+- I have used 2 client nodes for test CentOS 6.8 and CentOS 7.3
 
 Installation & Configuration
 ========
@@ -191,4 +193,57 @@ TargetID     Reachability  Consistency   NodeID
 TargetID     Reachability  Consistency   NodeID
 ========     ============  ===========   ======
        1           Online         Good        1
+```
+Mirroring/Buddy Groups
+========
+
+With Mirroring/Buddy groups it is possible to create a Highly Available storage solution. Without this in a case of a storage, metadata node failure, the whole storage becomes unavailable, corrupted.
+
+Enabling metadata mirroring
+--------
+Before executing the following command, clients should unmount the share
+```sh 
+[root@beegfsmgmt ~]# beegfs-ctl –mirrormd
+```
+After executing the command, the metadata service on all metadata nodes should be restarted.
+
+Crerating buddy group
+--------
+Manual definition of mirros/buddy group works with the following command, with automatic definiton I personally had some issues.
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --addmirrorgroup --nodetype=storage --primary=101 --secondary=201 --groupid=100
+Mirror buddy group successfully set: groupID 100 -> target IDs 101, 201
+```
+
+Creating metadata mirror group after adding a new metadata server
+--------
+
+```sh 
+[root@beegfsmgmt ~]# beegfs-ctl --addmirrorgroup --nodetype=meta --primary=1 --secondary=2 --groupid=200
+```
+
+Checking buddy group status
+--------
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --listmirrorgroups --nodetype=storage
+     BuddyGroupID   PrimaryTargetID SecondaryTargetID
+     ============   =============== =================
+              100               101               201
+```
+
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --listtargets --mirrorgroups
+    MirrorGroupID MGMemberType TargetID   NodeID
+    ============= ============ ========   ======
+              100      primary      101        1
+              100    secondary      201        2
+```
+          
+Displaying metadata mirrorgroup
+--------
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --listmirrorgroups --nodetype=meta
+     BuddyGroupID     PrimaryNodeID   SecondaryNodeID
+     ============     =============   ===============
+              200                 1                 2
 ```
