@@ -1,8 +1,8 @@
 # beegfsinazure
 BeeGFS parallel file system in Azure
 
-Introduction
-=========
+# Introduction
+
 BeeGFS is a parallel filesystem solution for HPC cluster workloads running on premise or in cloud environments.
 
 With Storage-, Metadata servers, Buddy Mirroring and a management service solution it provides vast ranges of configuration options, to accomodate almost any design requirement, with easily scaleout options.
@@ -24,8 +24,8 @@ I have deployed a single management server, an Availability Set with two metadat
 - There were two storage nodes with 4 standard 1TB disk / node.
 - I have used 2 client nodes for test CentOS 6.8 and CentOS 7.3
 
-Installation & Configuration
-========
+# Installation & Configuration
+
 I have installed the following packages as prerequisites on the environment.
 
     yum -y install epel-release zlib zlib-devel bzip2 bzip2-devel bzip2-libs \ 
@@ -47,8 +47,8 @@ And also disabled selinux
     sed -i 's/SELINUX=.*/SELINUX=permissive/g' /etc/selinux/config
     setenforce 0
 
-MGMT server
---------
+## MGMT server
+
 This host is used for administration and monitoring the running services
 
     wget -O /etc/yum.repos.d/beegfs-rhel7.repo http://www.beegfs.com/release/latest-stable/dists/beegfs-rhel7.repo yum install beegfs-mgmtd -y
@@ -66,8 +66,8 @@ After installation the storage location for the MGMT service has to be configure
     systemctl start beegfs-admon.service
 
 
-MetaData server
---------
+## MetaData server
+
 This server / these servers, servces are storing the metadata information. With moving this off from a storage node the over throughput performance can be much better.
 
     wget -O /etc/yum.repos.d/beegfs-rhel7.repo http://www.beegfs.com/release/latest-stable/dists/beegfs-rhel7.repo
@@ -101,8 +101,8 @@ Reload systemctl, enable, start the service
     systemctl start beegfs-meta.service
 
 
-Storage server
---------
+## Storage server
+
 Storage servers are responsible to store the file chunks in the cluster. It is worth to mention here, that the file chunks are stored distributed on all the storage servers by default (RAID 0 like operation). It is possible to implement a High Availabel solution with Buddy Mirroring.
 
     wget -O /etc/yum.repos.d/beegfs-rhel7.repo http://www.beegfs.com/release/latest-stable/dists/beegfs-rhel7.repo
@@ -134,8 +134,8 @@ reload systemctl and enable, start the service
     systemctl enable beegfs-storage.service
     systemctl start beegfs-storage.service
 
-Client machine
---------
+## Client machine
+
 It is possible to use NFS to mount BeeGFS shares, however in that case we completley loose the parallel file system benefits (like file coherency in less than a second). It is advised to use the BeeGFS client to mount the shares.
 
     wget -O /etc/yum.repos.d/beegfs-rhel7.repo http://www.beegfs.com/release/latest-stable/dists/beegfs-rhel7.repo
@@ -148,8 +148,7 @@ It is possible to use NFS to mount BeeGFS shares, however in that case we comple
     systemctl enable beegfs-helperd.service
     systemctl enable beegfs-client.service
 
-Management commands
-========
+# Management commands
 
 To manage the services use sysctl commands like
 
@@ -160,7 +159,7 @@ To manage the services use sysctl commands like
     systemctl start/stop/status beegfs-client
 To manage BeeGFS from the management node use the following commands
 
-**List nodes**
+## List nodes
 ```sh
 [root@beegfsmgmt ~]# beegfs-ctl --listnodes --nodetype=storage
    beegfs-storage02 [ID: 1]
@@ -171,7 +170,7 @@ To manage BeeGFS from the management node use the following commands
         beegfs-meta01 [ID: 1]
 ```
 
-**Listing metadata nodes after adding a new metadata server**
+## Listing metadata nodes after adding a new metadata server
 ```sh
 [root@beegfsmgmt ~]# beegfs-ctl --listtargets --nodetype=meta --state
 TargetID     Reachability  Consistency   NodeID
@@ -180,7 +179,7 @@ TargetID     Reachability  Consistency   NodeID
        2           Online         Good        2
 ```
 
-**List storage target**
+## List storage target
 ```sh
 [root@beegfsmgmt ~]# beegfs-ctl --listtargets --nodetype=storage --state
 TargetID     Reachability  Consistency   NodeID
@@ -194,36 +193,36 @@ TargetID     Reachability  Consistency   NodeID
 ========     ============  ===========   ======
        1           Online         Good        1
 ```
-Mirroring/Buddy Groups
-========
+# Mirroring/Buddy Groups
+
 
 With Mirroring/Buddy groups it is possible to create a Highly Available storage solution. Without this in a case of a storage, metadata node failure, the whole storage becomes unavailable, corrupted.
 
-Enabling metadata mirroring
---------
+## Enabling metadata mirroring
+
 Before executing the following command, clients should unmount the share
 ```sh 
 [root@beegfsmgmt ~]# beegfs-ctl –mirrormd
 ```
 After executing the command, the metadata service on all metadata nodes should be restarted.
 
-Crerating buddy group
---------
+## Crerating buddy group
+
 Manual definition of mirros/buddy group works with the following command, with automatic definiton I personally had some issues.
 ```sh
 [root@beegfsmgmt ~]# beegfs-ctl --addmirrorgroup --nodetype=storage --primary=101 --secondary=201 --groupid=100
 Mirror buddy group successfully set: groupID 100 -> target IDs 101, 201
 ```
 
-Creating metadata mirror group after adding a new metadata server
---------
+## Creating metadata mirror group after adding a new metadata server
+
 
 ```sh 
 [root@beegfsmgmt ~]# beegfs-ctl --addmirrorgroup --nodetype=meta --primary=1 --secondary=2 --groupid=200
 ```
 
-Checking buddy group status
---------
+### Checking buddy group status
+
 ```sh
 [root@beegfsmgmt ~]# beegfs-ctl --listmirrorgroups --nodetype=storage
      BuddyGroupID   PrimaryTargetID SecondaryTargetID
@@ -239,11 +238,126 @@ Checking buddy group status
               100    secondary      201        2
 ```
           
-Displaying metadata mirrorgroup
---------
+### Displaying metadata mirrorgroup
+
 ```sh
 [root@beegfsmgmt ~]# beegfs-ctl --listmirrorgroups --nodetype=meta
      BuddyGroupID     PrimaryNodeID   SecondaryNodeID
      ============     =============   ===============
               200                 1                 2
 ```
+
+## Configuring Storage striping
+By default the storage striping is RAID 0 which does not provides any sort of redundancy on the storage layer.
+### Checking the actual status
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --getentryinfo /mnt/beegfs
+Path:
+Mount: /mnt/beegfs
+EntryID: root
+Metadata node: beegfs-meta01 [ID: 1]
+Stripe pattern details:
++ Type: RAID0
++ Chunksize: 512K
++ Number of storage targets: desired: 4
+```
+
+### Configuring buddy mirroring
+
+If this is configured before any new files/directories are created on the mount, then it will be applied on all new files. 
+If it is configured after, then it has to be enforced manually. So only will apply for new directories and files by default.
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --setpattern --numtargets=2 --chunksize=1m --buddymirror /mnt/beegfs
+```
+This command sets the stripe pattern to a buddy mirror group as the stripe target. 
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --setpattern --numtargets=2 --chunksize=1m --buddymirror /mnt/beegfs
+New chunksize: 1048576
+New number of storage targets: 2
+
+Path:
+Mount: /mnt/beegfs
+Checking buddy mirror settings
+beegfs-ctl --getentryinfo /mnt/beegfs
+Path:
+Mount: /mnt/beegfs
+EntryID: root
+Metadata node: beegfs-meta01 [ID: 1]
+Stripe pattern details:
++ Type: Buddy Mirror
++ Chunksize: 1M
++ Number of storage targets: desired: 2
+```
+By creating a new directory we can check if this gets applied or not.
+```sh 
+[root@beegfsmgmt ~]# beegfs-ctl --getentryinfo /mnt/beegfs/smallfiles/
+Path: /smallfiles
+Mount: /mnt/beegfs
+EntryID: 0-59070A97-1
+Metadata node: beegfs-meta01 [ID: 1]
+Stripe pattern details:
++ Type: Buddy Mirror
++ Chunksize: 1M
++ Number of storage targets: desired: 2
+```
+
+### Checking Metadata mirroring
+
+#### Checking status
+If you the mirroring is not configured properly you will see the following
+```sh
+[root@beegfsmgmt ~]#  beegfs-ctl --resyncstats --nodetype=meta --nodeid=2
+**Job state: Not started**
+# of discovered dirs: 0
+# of discovery errors: 0
+# of synced dirs: 0
+# of synced files: 0
+# of dir sync errors: 0
+# of file sync errors: 0
+# of client sessions to sync: 0
+# of synced client sessions: 0
+session sync error: No
+# of modification objects synced: 0
+# of modification sync errors: 0
+```
+After successful metadata mirror configuration, and service restart the following should be seen.
+```sh
+[root@beegfsmgmt ~]#  beegfs-ctl --resyncstats --nodetype=meta --nodeid=2
+**Job state: Running
+Job start time: Mon May  1 12:25:45 2017
+# of discovered dirs: 2
+# of discovery errors: 0
+# of synced dirs: 0
+# of synced files: 0
+# of dir sync errors: 0
+# of file sync errors: 0
+# of client sessions to sync: 0
+# of synced client sessions: 0
+session sync error: No
+# of modification objects synced: 0
+# of modification sync errors: 0
+```
+If everything goes well after a few minutes metadata should be synced
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --resyncstats --nodetype=meta --nodeid=2
+**Job state: Completed successfully
+Job start time: Mon May  1 12:25:45 2017
+Job end time: Mon May  1 12:26:27 2017
+# of discovered dirs: 2
+# of discovery errors: 0
+# of synced dirs: 2
+# of synced files: 5
+# of dir sync errors: 0
+# of file sync errors: 0
+# of client sessions to sync: 0
+# of synced client sessions: 0
+session sync error: No
+# of modification objects synced: 0
+# of modification sync errors: 0
+Restarting metadata sync
+```
+It is possible to restart sync operation if necessary
+```sh
+[root@beegfsmgmt ~]# beegfs-ctl --startresync --nodetype=metadata --nodeid=2 --restart
+```
+
