@@ -1,2 +1,5 @@
 # beegfsinazure
-BeeGFS paralell filesstem in Azure
+BeeGFS parallel file system in Azure
+
+Introduction
+=========
