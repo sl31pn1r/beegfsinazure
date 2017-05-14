@@ -5,32 +5,32 @@ Table of Contents
 =================
 * [Introduction](#introduction)
 * [Installation & Configuration](#Installation-&-Configuration)
-    * [MGMT Server](#MGMT-server)
-    * [MetaData server](#MetaData-server)
-    * [Client machine](#Client-machine)   
-* [Management commands](#Management-commands)
-    * [List nodes](#List-nodes)
-    * [Listing metadata nodes](#Listing-metadata-nodes)
-    * [List storage target](#List-storage-target)
-* [Mirroring/Buddy Groups](#Mirroring/Buddy-Groups)
-    * [Enabling metadata mirroring](#Enabling-metadata-mirroring)
-    * [Creating storage buddy group](#Creating-storage-buddy-group)
-    * [Creating metadata mirror group](#Creating-metadata-mirror-group) 
-        * [Checking buddy group status](#Checking-buddy-group-status)
-        * [Displaying metadata mirrorgroup](#Displaying-metadata-mirrorgroup)
-    * [Configuring Storage striping](#Configuring-Storage-striping)
-        * [Checking the actual status](#Checking-the-actual-status)
-        * [Configuring buddy mirroring](#Configuring-buddy-mirroring)
-    * [Checking mirroring](#Checking-mirroring)
-        * [Checking status](#Checking-status)
-* [Tests](#Tests)
-    * [Performce](#Performce)
-        * [Smallfiles test 1](#Smallfiles-test-1)
-        * [Smallfiles test 2](#Smallfiles-test-2)    
-    * [High Availability test](#High-Availability-test)
-        * [Storage node failure test](#Storage-node-failure-test)
-            * [Synchronization of data after failure](#Synchronization-of-data-after-failure)
-        * [Metadata node failure test after mirroring](#Metadata-node-failure-test-after-mirroring)
+    * [MGMT Server](#mgmt-server)
+    * [MetaData server](#metadata-server)
+    * [Client machine](#client-machine)   
+* [Management commands](#management-commands)
+    * [List nodes](#list-nodes)
+    * [Listing metadata nodes](#listing-metadata-nodes)
+    * [List storage target](#list-storage-target)
+* [Mirroring/Buddy Groups](#mirroring/buddy-groups)
+    * [Enabling metadata mirroring](#enabling-metadata-mirroring)
+    * [Creating storage buddy group](#creating-storage-buddy-group)
+    * [Creating metadata mirror group](#creating-metadata-mirror-group) 
+        * [Checking buddy group status](#checking-buddy-group-status)
+        * [Displaying metadata mirrorgroup](#displaying-metadata-mirrorgroup)
+    * [Configuring Storage striping](#configuring-storage-striping)
+        * [Checking the actual status](#checking-the-actual-status)
+        * [Configuring buddy mirroring](#configuring-buddy-mirroring)
+    * [Checking mirroring](#checking-mirroring)
+        * [Checking status](#checking-status)
+* [Tests](#tests)
+    * [Performance](#performance)
+        * [Smallfiles test 1](#smallfiles-test-1)
+        * [Smallfiles test 2](#smallfiles-test-2)    
+    * [High Availability test](#high-availability-test)
+        * [Storage node failure test](#storage-node-failure-test)
+            * [Synchronization of data after failure](#synchronization-of-data-after-failure)
+        * [Metadata node failure test after mirroring](#metadata-node-failure-test-after-mirroring)
 
 ________
   
@@ -400,7 +400,7 @@ It is possible to restart sync operation if necessary
 ```
 
 # Tests
-## Performce
+## Performance
 ### Smallfiles test 1
 Generating 16GBs of files with 8 threads, in a single metadata node dual storage node configuration on a RAID0 storage share with mirroring.
 ```sh
