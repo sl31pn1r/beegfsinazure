@@ -1,6 +1,41 @@
 # beegfsinazure
 BeeGFS parallel file system in Azure
 
+Table of Contents
+=================
+* [Introduction](#Introduction)
+* [Installation & Configuration](#Installation-&-Configuration)
+    * [MGMT Server](#MGMT-server)
+    * [MetaData server](#MetaData-server)
+    * [Client machine](#Client-machine)   
+* [Management commands](#Management-commands)
+    * [List nodes](#List-nodes)
+    * [Listing metadata nodes](#Listing-metadata-nodes)
+    * [List storage target](#List-storage-target)
+* [Mirroring/Buddy Groups](#Mirroring/Buddy-Groups)
+    * [Enabling metadata mirroring](#Enabling-metadata-mirroring)
+    * [Creating storage buddy group](#Creating-storage-buddy-group)
+    * [Creating metadata mirror group](#Creating-metadata-mirror-group) 
+        * [Checking buddy group status](#Checking-buddy-group-status)
+        * [Displaying metadata mirrorgroup](#Displaying-metadata-mirrorgroup)
+    * [Configuring Storage striping](#Configuring-Storage-striping)
+        * [Checking the actual status](#Checking-the-actual-status)
+        * [Configuring buddy mirroring](#Configuring-buddy-mirroring)
+    * [Checking mirroring](#Checking-mirroring)
+        * [Checking status](#Checking-status)
+* [Tests](#Tests)
+    * [Performce](#Performce)
+        * [Smallfiles test 1](#Smallfiles-test-1)
+        * [Smallfiles test 2](#Smallfiles-test-2)    
+    * [High Availability test](#High-Availability-test)
+        * [Storage node failure test](#Storage-node-failure-test)
+            * [Synchronization of data after failure](#Synchronization-of-data-after-failure)
+        * [Metadata node failure test after mirroring](#Metadata-node-failure-test-after-mirroring)
+
+________
+  
+    
+    
 # Introduction
 
 BeeGFS is a parallel filesystem solution for HPC cluster workloads running on premise or in cloud environments.
@@ -170,7 +205,9 @@ To manage BeeGFS from the management node use the following commands
         beegfs-meta01 [ID: 1]
 ```
 
-## Listing metadata nodes after adding a new metadata server
+## Listing metadata nodes 
+
+After adding a new metadata server
 ```sh
 [root@beegfsmgmt ~]# beegfs-ctl --listtargets --nodetype=meta --state
 TargetID     Reachability  Consistency   NodeID
@@ -206,7 +243,7 @@ Before executing the following command, clients should unmount the share
 ```
 After executing the command, the metadata service on all metadata nodes should be restarted.
 
-## Crerating buddy group
+## Creating storage buddy group
 
 Manual definition of mirros/buddy group works with the following command, with automatic definiton I personally had some issues.
 ```sh
@@ -214,7 +251,8 @@ Manual definition of mirros/buddy group works with the following command, with a
 Mirror buddy group successfully set: groupID 100 -> target IDs 101, 201
 ```
 
-## Creating metadata mirror group after adding a new metadata server
+## Creating metadata mirror group 
+After adding a new metadata server
 
 
 ```sh 
@@ -301,9 +339,9 @@ Stripe pattern details:
 + Number of storage targets: desired: 2
 ```
 
-### Checking Metadata mirroring
+## Checking mirroring
 
-#### Checking status
+### Checking status
 If you the mirroring is not configured properly you will see the following
 ```sh
 [root@beegfsmgmt ~]#  beegfs-ctl --resyncstats --nodetype=meta --nodeid=2
@@ -519,7 +557,7 @@ Job end time: Mon May  1 11:09:40 2017
 ### Metadata node failure test after mirroring
 
 After configuring mirroring and down loading a new file we are testing the metadata mirroring in this step.
-#### First we check the node state
+#### Check the node state
 ```sh
 [root@beegfsmgmt ~]# beegfs-ctl --listtargets --nodetype=metadata --state
 TargetID     Reachability  Consistency   NodeID
