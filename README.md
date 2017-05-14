@@ -3,7 +3,7 @@ BeeGFS parallel file system in Azure
 
 Table of Contents
 =================
-* [Introduction](#Introduction)
+* [Introduction](#introduction)
 * [Installation & Configuration](#Installation-&-Configuration)
     * [MGMT Server](#MGMT-server)
     * [MetaData server](#MetaData-server)
